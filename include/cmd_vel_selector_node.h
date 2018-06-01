@@ -49,17 +49,17 @@ public:
     void poll_command(const ros::TimerEvent &event);
 
 private:
-    ros::Subscriber make_teleop_subscriber() const;
+    ros::Subscriber make_teleop_subscriber();
 
-    ros::Subscriber make_autonomous_subscriber() const;
+    ros::Subscriber make_autonomous_subscriber();
 
-    ros::Subscriber make_joy_subscriber() const;
+    ros::Subscriber make_joy_subscriber();
 
-    ros::Publisher make_cmd_vel_publisher() const;
+    ros::Publisher make_cmd_vel_publisher();
 
-    ros::Publisher make_source_publisher() const;
+    ros::Publisher make_source_publisher();
 
-    ros::Timer make_poll_timer() const;
+    ros::Timer make_poll_timer();
 
     ros::Rate get_rate() const;
 
@@ -69,7 +69,7 @@ private:
 
     ButtonState get_next_state(std::int32_t button_data) const noexcept;
 
-    void flip_mode();
+    OutputMode flip_mode();
 
     ros::NodeHandle node_;
     ros::NodeHandle local_node_;

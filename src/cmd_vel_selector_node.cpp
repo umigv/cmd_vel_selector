@@ -9,12 +9,14 @@ namespace cmd_vel_selector {
 void CmdVelSelectorNode::add_teleop(
     const geometry_msgs::Twist::ConstPtr &cmd_vel_ptr
 ) {
+    ROS_DEBUG_STREAM("received a teleoperated velocity command");
     selector_.accept_teleop(*cmd_vel_ptr);
 }
 
 void CmdVelSelectorNode::add_autonomous(
     const geometry_msgs::Twist::ConstPtr &cmd_vel_ptr
 ) {
+    ROS_DEBUG_STREAM("received an autonomous velocity command");
     selector_.accept_autonomous(*cmd_vel_ptr);
 }
 
@@ -48,6 +50,7 @@ void CmdVelSelectorNode::check_button(
 
             break;
         }
+        }
     }
 
     button_state_ = next_button_state;
@@ -57,7 +60,7 @@ void CmdVelSelectorNode::poll_command(const ros::TimerEvent&) {
     const auto maybe_cmd_vel = selector_.latest();
 
     if (!maybe_cmd_vel) {
-        ROS_WARN_STREAM("no new command velocity at poll time");
+        ROS_WARN_STREAM_THROTTLE(1.0, "no new command velocity at poll time");
 
         return;
     }
@@ -65,12 +68,12 @@ void CmdVelSelectorNode::poll_command(const ros::TimerEvent&) {
     cmd_vel_publisher_.publish(maybe_cmd_vel.value());
 }
 
-ros::Subscriber CmdVelSelectorNode::make_teleop_subscriber() const {
+ros::Subscriber CmdVelSelectorNode::make_teleop_subscriber() {
     using MessageT = geometry_msgs::Twist;
 
     static constexpr char TOPIC[] = "teleop/cmd_vel";
     static constexpr std::uint32_t QUEUE_SIZE = 10;
-    static constexpr auto CALLBACK_PTR = &CmdVelSelectorNode::add_teleop;
+    static constexpr auto &&CALLBACK_PTR = &CmdVelSelectorNode::add_teleop;
 
     auto &&subscriber = node_.subscribe<MessageT>(TOPIC, QUEUE_SIZE,
                                                   CALLBACK_PTR, this);
@@ -81,12 +84,12 @@ ros::Subscriber CmdVelSelectorNode::make_teleop_subscriber() const {
     return subscriber;
 }
 
-ros::Subscriber CmdVelSelectorNode::make_autonomous_subscriber() const {
+ros::Subscriber CmdVelSelectorNode::make_autonomous_subscriber() {
     using MessageT = geometry_msgs::Twist;
 
     static constexpr char TOPIC[] = "autonomous/cmd_vel";
     static constexpr std::uint32_t QUEUE_SIZE = 10;
-    static constexpr auto CALLBACK_PTR = &CmdVelSelectorNode::add_autonomous;
+    static constexpr auto &&CALLBACK_PTR = &CmdVelSelectorNode::add_autonomous;
 
     auto &&subscriber = node_.subscribe<MessageT>(TOPIC, QUEUE_SIZE,
                                                   CALLBACK_PTR, this);
@@ -97,12 +100,12 @@ ros::Subscriber CmdVelSelectorNode::make_autonomous_subscriber() const {
     return subscriber;
 }
 
-ros::Subscriber CmdVelSelectorNode::make_joy_subscriber() const {
-    using MessageT = geometry_msgs::Twist;
+ros::Subscriber CmdVelSelectorNode::make_joy_subscriber() {
+    using MessageT = sensor_msgs::Joy;
 
-    static constexpr char TOPIC[] = "joy";
+    static const std::string TOPIC = "joy";
     static constexpr std::uint32_t QUEUE_SIZE = 10;
-    static constexpr auto CALLBACK_PTR = &CmdVelSelectorNode::check_button;
+    static constexpr auto &&CALLBACK_PTR = &CmdVelSelectorNode::check_button;
 
     auto &&subscriber = node_.subscribe<MessageT>(TOPIC, QUEUE_SIZE,
                                                   CALLBACK_PTR, this);
@@ -112,10 +115,10 @@ ros::Subscriber CmdVelSelectorNode::make_joy_subscriber() const {
     return subscriber;
 }
 
-ros::Publisher CmdVelSelectorNode::make_cmd_vel_publisher() const {
+ros::Publisher CmdVelSelectorNode::make_cmd_vel_publisher() {
     using MessageT = geometry_msgs::Twist;
 
-    static constexpr char TOPIC[] = "cmd_vel";
+    static const std::string TOPIC = "cmd_vel";
     static constexpr std::uint32_t QUEUE_SIZE = 10;
     static constexpr bool LATCHED = false;
 
@@ -126,10 +129,10 @@ ros::Publisher CmdVelSelectorNode::make_cmd_vel_publisher() const {
     return publisher;
 }
 
-ros::Publisher CmdVelSelectorNode::make_source_publisher() const {
+ros::Publisher CmdVelSelectorNode::make_source_publisher() {
     using MessageT = std_msgs::String;
 
-    static constexpr char TOPIC[] = "cmd_vel_source";
+    static const std::string TOPIC = "cmd_vel_source";
     static constexpr std::uint32_t QUEUE_SIZE = 10;
     static constexpr bool LATCHED = true;
 
@@ -140,17 +143,18 @@ ros::Publisher CmdVelSelectorNode::make_source_publisher() const {
     return publisher;
 }
 
-ros::Timer CmdVelSelectorNode::make_poll_timer() const {
+ros::Timer CmdVelSelectorNode::make_poll_timer() {
     const ros::Rate rate = get_rate();
 
     return node_.createTimer(rate, &CmdVelSelectorNode::poll_command, this);
 }
 
 ros::Rate CmdVelSelectorNode::get_rate() const {
-    static constexpr char KEY[] = "rate";
+    static const std::string KEY = "rate";
     static constexpr double DEFAULT = 20.0;
 
-    const double fetched = local_node_.param(KEY, DEFAULT);
+    double fetched;
+    local_node_.param(KEY, fetched, DEFAULT);
 
     if (fetched <= 0) {
         ROS_WARN_STREAM("invalid value of ~rate: " << fetched
@@ -165,10 +169,11 @@ ros::Rate CmdVelSelectorNode::get_rate() const {
 }
 
 std::size_t CmdVelSelectorNode::get_joy_button() const {
-    static constexpr char KEY[] = "joy_button";
+    static const std::string KEY = "joy_button";
     static constexpr int DEFAULT = 0;
 
-    const int fetched = local_node_.param(KEY, DEFAULT);
+    int fetched;
+    local_node_.param(KEY, fetched, DEFAULT);
 
     if (fetched < 0) {
         ROS_WARN_STREAM("invalid value of ~joy_button: " << fetched
@@ -183,10 +188,11 @@ std::size_t CmdVelSelectorNode::get_joy_button() const {
 }
 
 std::int32_t CmdVelSelectorNode::get_pressed_threshold() const {
-    static constexpr char KEY[] = "pressed_threshold";
-    static constexpr int DEFAULT = 0;
+    static const std::string KEY = "pressed_threshold";
+    static constexpr int DEFAULT = 1;
 
-    const int fetched = local_node_.param(KEY, DEFAULT);
+    int fetched;
+    local_node_.param(KEY, fetched, DEFAULT);
 
     if (fetched > std::numeric_limits<std::int32_t>::max()
         || fetched < std::numeric_limits<std::int32_t>::min()) {
@@ -211,13 +217,19 @@ const noexcept {
 }
 
 OutputMode CmdVelSelectorNode::flip_mode() {
+    std_msgs::String source_message;
+
     switch (selector_.mode()) {
     case OutputMode::Teleoperated: {
         selector_.mode() = OutputMode::Autonomous;
+        source_message.data = "autonomous";
+        source_publisher_.publish(source_message);
 
         break;
     } case OutputMode::Autonomous: {
         selector_.mode() = OutputMode::Teleoperated;
+        source_message.data = "teleoperated";
+        source_publisher_.publish(source_message);
 
         break;
     }
